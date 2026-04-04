@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>약제부 근무표</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; background: #f5f5f5; color: #222; }
+.app { max-width: 800px; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 20px; font-weight: 700; margin-bottom: 1rem; color: #222; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+.tab { padding: 8px 20px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 14px; color: #666; }
+.tab.active { background: #EBF4FF; color: #1a73e8; border-color: #1a73e8; }
+.section { display: none; }
+.section.active { display: block; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.cal-nav { display: flex; gap: 8px; align-items: center; }
+.cal-nav button { border: 1px solid #ddd; background: #fff; border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 14px; }
+.cal-title { font-size: 18px; font-weight: 700; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+.filter-row input, .filter-row select { font-size: 13px; padding: 7px 10px; border-radius: 8px; border: 1px solid #ddd; background: #fff; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #555; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.grid-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+.grid-header div { text-align: center; font-size: 12px; color: #888; padding: 4px 0; font-weight: 600; }
+.grid-header div:first-child { color: #e53935; }
+.grid-header div:last-child { color: #1a73e8; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-day { min-height: 75px; border-radius: 8px; border: 1px solid #e8e8e8; padding: 5px; background: #fff; }
+.cal-day.empty { background: transparent; border-color: transparent; }
+.cal-day.today { border: 2px solid #1a73e8; }
+.cal-day.weekend-sun .day-num { color: #e53935; }
+.cal-day.weekend-sat .day-num { color: #1a73e8; }
+.day-num { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.shift-tag { font-size: 10px; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-병동 { background: #E3F2FD; color: #0D47A1; }
+.s-응급 { background: #FBE9E7; color: #BF360C; }
+.s-야간 { background: #EDE7F6; color: #4527A0; }
+.s-토요 { background: #E8F5E9; color: #1B5E20; }
+.s-일직 { background: #FFF8E1; color: #E65100; }
+.board-wrap { display: flex; flex-direction: column; gap: 12px; }
+.board-form { background: #fff; border-radius: 12px; padding: 1rem; border: 1px solid #e8e8e8; }
+.board-form h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.form-row input, .form-row select { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; }
+.form-full input, .form-full textarea { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
+textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+.btn-post { width: 100%; padding: 10px; border-radius: 8px; border: none; background: #1a73e8; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; }
+.post-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; padding: 1rem; }
+.post-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.post-name { font-weight: 700; font-size: 14px; }
+.post-time { font-size: 12px; color: #999; }
+.post-shift { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; font-weight: 600; }
+.post-info { font-size: 13px; margin-bottom: 4px; }
+.post-msg { font-size: 13px; color: #666; margin-bottom: 10px; }
+.btn-accept { font-size: 12px; padding: 6px 16px; border-radius: 8px; border: 1px solid #34a853; background: #E8F5E9; color: #1B5E20; cursor: pointer; font-weight: 600; }
+.btn-done { font-size: 12px; padding: 6px 16px; border-radius: 8px; border: 1px solid #ddd; background: #f5f5f5; color: #999; cursor: default; }
+.accepted-by { font-size: 12px; color: #34a853; margin-top: 6px; font-weight: 600; }
+.empty-board { text-align: center; padding: 2rem; color: #999; font-size: 14px; background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>💊 약제부 근무표</h1>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('cal')">📅 근무표</button>
+    <button class="tab" onclick="showTab('board')">🔄 교환 게시판</button>
+  </div>
+
+  <div id="cal" class="section active">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button onclick="changeMonth(-1)">◀</button>
+        <span class="cal-title" id="cal-title">2026년 7월</span>
+        <button onclick="changeMonth(1)">▶</button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <input type="text" id="name-filter" placeholder="🔍 이름 검색..." oninput="renderCal()" style="width:140px;">
+      <select id="shift-filter" onchange="renderCal()">
+        <option value="">전체 근무</option>
+        <option value="병동">병동약국</option>
+        <option value="응급">응급약국</option>
+        <option value="야간">야간전담</option>
+        <option value="토요">토요근무</option>
+        <option value="일직">일직</option>
+      </select>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#90CAF9"></div>병동약국</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FFAB91"></div>응급약국</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#CE93D8"></div>야간전담</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#A5D6A7"></div>토요근무</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FFE082"></div>일직</div>
+    </div>
+    <div class="grid-header">
+      <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <div id="board" class="section">
+    <div class="board-wrap">
+      <div class="board-form">
+        <h3>교환 요청 올리기</h3>
+        <div class="form-row">
+          <input type="text" id="req-name" placeholder="내 이름">
+          <input type="date" id="req-date">
+        </div>
+        <div class="form-row">
+          <select id="req-shift">
+            <option value="">근무 종류 선택</option>
+            <option value="병동">병동약국</option>
+            <option value="응급">응급약국</option>
+            <option value="야간">야간전담</option>
+            <option value="토요">토요근무</option>
+            <option value="일직">일직</option>
+          </select>
+          <input type="text" id="req-want" placeholder="원하는 날짜 (선택)">
+        </div>
+        <div class="form-full">
+          <textarea id="req-msg" placeholder="한마디 (예: 7/15 병동 교환 원해요~ 아무날이나 가능해요)"></textarea>
+        </div>
+        <button class="btn-post" onclick="postRequest()">교환 요청 올리기</button>
+      </div>
+      <div id="board-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHIFTS = { "병동":"s-병동","응급":"s-응급","야간":"s-야간","토요":"s-토요","일직":"s-일직" };
+
+const RAW = [
+  {d:1,병동:["최재영"],응급:["구지환"],야간:["김종훈","박아름"]},
+  {d:2,병동:["최재영"],응급:["성창환"],야간:["김정아4","박장미"]},
+  {d:3,병동:["최재영"],응급:["최재영"],야간:["김정아2","고은희"]},
+  {d:4,병동:["최재영"],응급:["김영준"],야간:["김종훈","박아름"],토요:["윤보현"]},
+  {d:5,병동:["박미선"],응급:["박현규"],야간:["김정아2","박장미"],일직:["박혜빈"]},
+  {d:6,병동:["설다겸"],응급:["김건하"],야간:["김정아4","고은희"]},
+  {d:7,병동:["김성연"],응급:["김지예"],야간:["김종훈","박아름"]},
+  {d:8,병동:["박현규"],응급:["임진석"],야간:["김정아4","박장미"]},
+  {d:9,병동:["최재영"],응급:["구지환"],야간:["김정아2","고은희"]},
+  {d:10,병동:["고진영"],응급:["김영준"],야간:["김종훈","박아름"]},
+  {d:11,병동:["김경은"],응급:["박현규"],야간:["김정아4","박장미"],토요:["황지희"]},
+  {d:12,병동:["구지환"],응급:["최윤지"],야간:["김정아2","고은희"],일직:["장진이"]},
+  {d:13,병동:["최은정"],응급:["손소영"],야간:["김종훈","박아름"]},
+  {d:14,병동:["김동수"],응급:["박미선"],야간:["김정아4","박장미"]},
+  {d:15,병동:["박미선"],응급:["변치문"],야간:["김정아2","고은희"]},
+  {d:16,병동:["김은신"],응급:["김영준"],야간:["김종훈","박아름"]},
+  {d:17,병동:["김동수"],응급:["임진석"],야간:["박장미","고은희"]},
+  {d:18,병동:["설다겸"],응급:["최재영"],야간:["김정아2","김종훈"],토요:["허미정"]},
+  {d:19,병동:["최은정"],응급:["변치문"],야간:["박아름","박장미"],일직:["장진이"]},
+  {d:20,병동:["김지예"],응급:["최윤지"],야간:["김정아4","김정아2"]},
+  {d:21,병동:["김성연"],응급:["김영준"],야간:["고은희","김종훈"]},
+  {d:22,병동:["박미선"],응급:["최재영"],야간:["박아름","박장미"]},
+  {d:23,병동:["구지환"],응급:["김건하"],야간:["고은희","김정아2"]},
+  {d:24,병동:["이지희"],응급:["성창환"],야간:["김정아4","김종훈"]},
+  {d:25,병동:["임진석"],응급:["구지환"],야간:["박아름","박장미"],토요:["강옥경"]},
+  {d:26,병동:["조혜민"],응급:["성창환"],야간:["김정아4","김정아2"],일직:["박혜원"]},
+  {d:27,병동:["김동수"],응급:["변치문"],야간:["고은희","김종훈"]},
+  {d:28,병동:["김영준"],응급:["최윤지"],야간:["박아름","박장미"]},
+  {d:29,병동:["구지환"],응급:["손소영"],야간:["김정아4","김정아2"]},
+];
+
+let curYear=2026, curMonth=7;
+let posts = JSON.parse(localStorage.getItem('yakjebu-posts')||'[]');
+
+function savePosts(){ localStorage.setItem('yakjebu-posts', JSON.stringify(posts)); }
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['cal','board'][i]===t));
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.getElementById(t).classList.add('active');
+  if(t==='board') renderBoard();
+}
+
+function changeMonth(d){
+  curMonth+=d;
+  if(curMonth>12){curMonth=1;curYear++;}
+  if(curMonth<1){curMonth=12;curYear--;}
+  renderCal();
+}
+
+function renderCal(){
+  const nameF=document.getElementById('name-filter').value.trim();
+  const shiftF=document.getElementById('shift-filter').value;
+  document.getElementById('cal-title').textContent=`${curYear}년 ${curMonth}월`;
+  const firstDay=new Date(curYear,curMonth-1,1).getDay();
+  const daysInMonth=new Date(curYear,curMonth,0).getDate();
+  const today=new Date();
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  for(let i=0;i<firstDay;i++){
+    const el=document.createElement('div');
+    el.className='cal-day empty';
+    grid.appendChild(el);
+  }
+  const dataMap={};
+  if(curYear===2026&&curMonth===7) RAW.forEach(r=>dataMap[r.d]=r);
+  for(let d=1;d<=daysInMonth;d++){
+    const el=document.createElement('div');
+    const dow=(firstDay+d-1)%7;
+    let cls='cal-day';
+    if(dow===0)cls+=' weekend-sun';
+    if(dow===6)cls+=' weekend-sat';
+    if(today.getFullYear()===curYear&&today.getMonth()===curMonth-1&&today.getDate()===d)cls+=' today';
+    el.className=cls;
+    const dn=document.createElement('div');
+    dn.className='day-num';
+    dn.textContent=d;
+    el.appendChild(dn);
+    const row=dataMap[d];
+    if(row){
+      ['병동','응급','야간','토요','일직'].forEach(type=>{
+        if(shiftF&&shiftF!==type)return;
+        (row[type]||[]).forEach(name=>{
+          if(nameF&&!name.includes(nameF))return;
+          const tag=document.createElement('div');
+          tag.className='shift-tag '+SHIFTS[type];
+          tag.textContent=`[${type}] ${name}`;
+          el.appendChild(tag);
+        });
+      });
+    }
+    grid.appendChild(el);
+  }
+}
+
+function postRequest(){
+  const name=document.getElementById('req-name').value.trim();
+  const date=document.getElementById('req-date').value;
+  const shift=document.getElementById('req-shift').value;
+  const want=document.getElementById('req-want').value.trim();
+  const msg=document.getElementById('req-msg').value.trim();
+  if(!name||!date||!shift){alert('이름, 날짜, 근무 종류는 필수예요!');return;}
+  posts.unshift({id:Date.now(),name,date,shift,want,msg,accepted:null,
+    time:new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})});
+  savePosts();
+  document.getElementById('req-name').value='';
+  document.getElementById('req-date').value='';
+  document.getElementById('req-shift').value='';
+  document.getElementById('req-want').value='';
+  document.getElementById('req-msg').value='';
+  renderBoard();
+}
+
+function acceptPost(id){
+  const name=prompt('수락하는 분 이름을 입력해주세요:');
+  if(!name)return;
+  const p=posts.find(x=>x.id===id);
+  if(p)p.accepted=name;
+  savePosts();
+  renderBoard();
+}
+
+function renderBoard(){
+  const list=document.getElementById('board-list');
+  if(posts.length===0){
+    list.innerHTML='<div class="empty-board">아직 교환 요청이 없어요 😊<br>첫 번째 요청을 올려보세요!</div>';
+    return;
+  }
+  list.innerHTML=posts.map(p=>`
+    <div class="post-card">
+      <div class="post-head">
+        <span class="post-name">${p.name}</span>
+        <span class="post-time">${p.time}</span>
+      </div>
+      <span class="post-shift shift-tag ${SHIFTS[p.shift]}">${p.shift}</span>
+      <div class="post-info"><b>${p.date}</b> 근무 교환 희망${p.want?' → 원하는 날: <b>'+p.want+'</b>':''}</div>
+      ${p.msg?`<div class="post-msg">${p.msg}</div>`:''}
+      <div>
+        ${p.accepted
+          ?`<button class="btn-done">수락됨</button><div class="accepted-by">✓ ${p.accepted}님이 수락했어요</div>`
+          :`<button class="btn-accept" onclick="acceptPost(${p.id})">수락하기</button>`}
+      </div>
+    </div>
+  `).join('');
+}
+
+renderCal();
+renderBoard();
+</script>
+</body>
+</html>
