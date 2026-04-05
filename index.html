@@ -34,12 +34,26 @@ h1 { font-size: 20px; font-weight: 700; margin-bottom: 1rem; color: #222; }
 .cal-day.weekend-sun .day-num { color: #e53935; }
 .cal-day.weekend-sat .day-num { color: #1a73e8; }
 .day-num { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
-.shift-tag { font-size: 10px; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shift-tag { font-size: 10px; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: opacity 0.15s; }
+.shift-tag:hover { opacity: 0.75; }
+.shift-tag.swapped { text-decoration: line-through; opacity: 0.5; }
 .s-병동 { background: #E3F2FD; color: #0D47A1; }
 .s-응급 { background: #FBE9E7; color: #BF360C; }
-.s-야간 { background: #EDE7F6; color: #4527A0; }
 .s-토요 { background: #E8F5E9; color: #1B5E20; }
 .s-일직 { background: #FFF8E1; color: #E65100; }
+.s-new { background: #F3E5F5; color: #6A1B9A; }
+
+/* 모달 */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 1.5rem; width: 90%; max-width: 340px; }
+.modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.modal .sub { font-size: 13px; color: #888; margin-bottom: 1rem; }
+.modal input { width: 100%; font-size: 14px; padding: 9px 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; }
+.modal-btns { display: flex; gap: 8px; }
+.btn-cancel { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; background: #f5f5f5; color: #666; cursor: pointer; font-size: 14px; }
+.btn-confirm { flex: 1; padding: 10px; border-radius: 8px; border: none; background: #1a73e8; color: #fff; cursor: pointer; font-size: 14px; font-weight: 600; }
+
 .board-wrap { display: flex; flex-direction: column; gap: 12px; }
 .board-form { background: #fff; border-radius: 12px; padding: 1rem; border: 1px solid #e8e8e8; }
 .board-form h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
@@ -62,6 +76,7 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
 .empty-board { text-align: center; padding: 2rem; color: #999; font-size: 14px; background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
 .loading { text-align: center; padding: 2rem; color: #999; font-size: 14px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 999; display: none; }
+.hint { font-size: 11px; color: #aaa; margin-bottom: 0.5rem; }
 </style>
 </head>
 <body>
@@ -90,12 +105,13 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
         <option value="일직">일직</option>
       </select>
     </div>
+    <p class="hint">💡 이름을 클릭하면 근무 교환을 신청할 수 있어요</p>
     <div class="legend">
       <div class="legend-item"><div class="legend-dot" style="background:#90CAF9"></div>병동약국</div>
       <div class="legend-item"><div class="legend-dot" style="background:#FFAB91"></div>응급약국</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#CE93D8"></div>야간전담</div>
       <div class="legend-item"><div class="legend-dot" style="background:#A5D6A7"></div>토요근무</div>
       <div class="legend-item"><div class="legend-dot" style="background:#FFE082"></div>일직</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#CE93D8"></div>교환됨</div>
     </div>
     <div class="grid-header">
       <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
@@ -130,54 +146,63 @@ textarea { resize: vertical; min-height: 60px; font-family: inherit; }
     </div>
   </div>
 </div>
+
+<!-- 교환 모달 -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">근무 교환 신청</h3>
+    <p class="sub" id="modal-sub"></p>
+    <input type="text" id="modal-input" placeholder="교환할 상대방 이름 입력">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-confirm" onclick="confirmSwap()">교환 확정</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const SUPABASE_URL = 'https://vtntequnqsmmqmetvqgr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0bnRlcXVucXNtbXFtZXR2cWdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNzg1MzEsImV4cCI6MjA5MDk1NDUzMX0.7P3EYnq-W5T646OXqNQH6G5luFk0G7PsJjwZRXdqR2Y';
 
-const SHIFTS = { "병동":"s-병동","응급":"s-응급","야간":"s-야간","토요":"s-토요","일직":"s-일직" };
+const SHIFTS = { "병동":"s-병동","응급":"s-응급","토요":"s-토요","일직":"s-일직" };
 
 const RAW = [
-  {d:1,병동:["최재영"],응급:["구지환"],야간:["김종훈","박아름"]},
-  {d:2,병동:["최재영"],응급:["성창환"],야간:["김정아4","박장미"]},
-  {d:3,병동:["최재영"],응급:["최재영"],야간:["김정아2","고은희"]},
-  {d:4,병동:["최재영"],응급:["김영준"],야간:["김종훈","박아름"],토요:["윤보현"]},
-  {d:5,병동:["박미선"],응급:["박현규"],야간:["김정아2","박장미"],일직:["박혜빈"]},
-  {d:6,병동:["설다겸"],응급:["김건하"],야간:["김정아4","고은희"]},
-  {d:7,병동:["김성연"],응급:["김지예"],야간:["김종훈","박아름"]},
-  {d:8,병동:["박현규"],응급:["임진석"],야간:["김정아4","박장미"]},
-  {d:9,병동:["최재영"],응급:["구지환"],야간:["김정아2","고은희"]},
-  {d:10,병동:["고진영"],응급:["김영준"],야간:["김종훈","박아름"]},
-  {d:11,병동:["김경은"],응급:["박현규"],야간:["김정아4","박장미"],토요:["황지희"]},
-  {d:12,병동:["구지환"],응급:["최윤지"],야간:["김정아2","고은희"],일직:["장진이"]},
-  {d:13,병동:["최은정"],응급:["손소영"],야간:["김종훈","박아름"]},
-  {d:14,병동:["김동수"],응급:["박미선"],야간:["김정아4","박장미"]},
-  {d:15,병동:["박미선"],응급:["변치문"],야간:["김정아2","고은희"]},
-  {d:16,병동:["김은신"],응급:["김영준"],야간:["김종훈","박아름"]},
-  {d:17,병동:["김동수"],응급:["임진석"],야간:["박장미","고은희"]},
-  {d:18,병동:["설다겸"],응급:["최재영"],야간:["김정아2","김종훈"],토요:["허미정"]},
-  {d:19,병동:["최은정"],응급:["변치문"],야간:["박아름","박장미"],일직:["장진이"]},
-  {d:20,병동:["김지예"],응급:["최윤지"],야간:["김정아4","김정아2"]},
-  {d:21,병동:["김성연"],응급:["김영준"],야간:["고은희","김종훈"]},
-  {d:22,병동:["박미선"],응급:["최재영"],야간:["박아름","박장미"]},
-  {d:23,병동:["구지환"],응급:["김건하"],야간:["고은희","김정아2"]},
-  {d:24,병동:["이지희"],응급:["성창환"],야간:["김정아4","김종훈"]},
-  {d:25,병동:["임진석"],응급:["구지환"],야간:["박아름","박장미"],토요:["강옥경"]},
-  {d:26,병동:["조혜민"],응급:["성창환"],야간:["김정아4","김정아2"],일직:["박혜원"]},
-  {d:27,병동:["김동수"],응급:["변치문"],야간:["고은희","김종훈"]},
-  {d:28,병동:["김영준"],응급:["최윤지"],야간:["박아름","박장미"]},
-  {d:29,병동:["구지환"],응급:["손소영"],야간:["김정아4","김정아2"]},
+  {d:1,병동:["최재영"],응급:["구지환"]},
+  {d:2,병동:["최재영"],응급:["성창환"]},
+  {d:3,병동:["최재영"],응급:["최재영"]},
+  {d:4,병동:["최재영"],응급:["김영준"],토요:["윤보현"]},
+  {d:5,병동:["박미선"],응급:["박현규"],일직:["박혜빈"]},
+  {d:6,병동:["설다겸"],응급:["김건하"]},
+  {d:7,병동:["김성연"],응급:["김지예"]},
+  {d:8,병동:["박현규"],응급:["임진석"]},
+  {d:9,병동:["최재영"],응급:["구지환"]},
+  {d:10,병동:["고진영"],응급:["김영준"]},
+  {d:11,병동:["김경은"],응급:["박현규"],토요:["황지희"]},
+  {d:12,병동:["구지환"],응급:["최윤지"],일직:["장진이"]},
+  {d:13,병동:["최은정"],응급:["손소영"]},
+  {d:14,병동:["김동수"],응급:["박미선"]},
+  {d:15,병동:["박미선"],응급:["변치문"]},
+  {d:16,병동:["김은신"],응급:["김영준"]},
+  {d:17,병동:["김동수"],응급:["임진석"]},
+  {d:18,병동:["설다겸"],응급:["최재영"],토요:["허미정"]},
+  {d:19,병동:["최은정"],응급:["변치문"],일직:["장진이"]},
+  {d:20,병동:["김지예"],응급:["최윤지"]},
+  {d:21,병동:["김성연"],응급:["김영준"]},
+  {d:22,병동:["박미선"],응급:["최재영"]},
+  {d:23,병동:["구지환"],응급:["김건하"]},
+  {d:24,병동:["이지희"],응급:["성창환"]},
+  {d:25,병동:["임진석"],응급:["구지환"],토요:["강옥경"]},
+  {d:26,병동:["조혜민"],응급:["성창환"],일직:["박혜원"]},
+  {d:27,병동:["김동수"],응급:["변치문"]},
+  {d:28,병동:["김영준"],응급:["최윤지"]},
+  {d:29,병동:["구지환"],응급:["손소영"]},
 ];
 
 let curYear=2026, curMonth=7;
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2500);
-}
+let swaps = {}; // {key: newName} key = "d-type-origName"
+let pendingSwap = null;
 
 async function sbFetch(path, options={}) {
   const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
@@ -195,6 +220,13 @@ async function sbFetch(path, options={}) {
   return text ? JSON.parse(text) : null;
 }
 
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
 function showTab(t) {
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['cal','board'][i]===t));
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
@@ -207,6 +239,16 @@ function changeMonth(d) {
   if(curMonth>12){curMonth=1;curYear++;}
   if(curMonth<1){curMonth=12;curYear--;}
   renderCal();
+}
+
+async function loadSwaps() {
+  try {
+    const data = await sbFetch('posts?accepted=not.is.null&order=created_at.desc');
+    swaps = {};
+    (data||[]).forEach(p => {
+      if(p.accepted && p.swap_key) swaps[p.swap_key] = p.accepted;
+    });
+  } catch(e) {}
 }
 
 function renderCal() {
@@ -241,16 +283,64 @@ function renderCal() {
     if(row){
       ['병동','응급','토요','일직'].forEach(type=>{
         if(shiftF&&shiftF!==type)return;
-        (row[type]||[]).forEach(name=>{
-          if(nameF&&!name.includes(nameF))return;
+        (row[type]||[]).forEach(origName=>{
+          const key=`${d}-${type}-${origName}`;
+          const swappedName = swaps[key];
+          const displayName = swappedName || origName;
+          if(nameF&&!displayName.includes(nameF)&&!origName.includes(nameF))return;
           const tag=document.createElement('div');
-          tag.className='shift-tag '+SHIFTS[type];
-          tag.textContent=`[${type}] ${name}`;
+          tag.className='shift-tag '+(swappedName?'s-new':SHIFTS[type]);
+          tag.textContent=`[${type}] ${displayName}`;
+          if(swappedName) tag.title=`원래: ${origName} → ${swappedName}`;
+          tag.onclick=()=>openModal(d,type,origName,displayName);
           el.appendChild(tag);
         });
       });
     }
     grid.appendChild(el);
+  }
+}
+
+function openModal(d, type, origName, displayName) {
+  pendingSwap = {d, type, origName};
+  document.getElementById('modal-title').textContent='근무 교환';
+  document.getElementById('modal-sub').textContent=`7/${d} [${type}] ${displayName} 근무를 교환합니다`;
+  document.getElementById('modal-input').value='';
+  document.getElementById('modal-input').placeholder='교환할 상대방 이름';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  pendingSwap = null;
+}
+
+async function confirmSwap() {
+  const newName = document.getElementById('modal-input').value.trim();
+  if(!newName){alert('상대방 이름을 입력해주세요!');return;}
+  if(!pendingSwap)return;
+  const {d, type, origName} = pendingSwap;
+  const key = `${d}-${type}-${origName}`;
+  try {
+    await sbFetch('posts', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        name: origName,
+        date: `2026-07-${String(d).padStart(2,'0')}`,
+        shift: type,
+        want: null,
+        msg: `${origName} → ${newName} 교환 확정`,
+        accepted: newName,
+        swap_key: key
+      })
+    });
+    swaps[key] = newName;
+    closeModal();
+    showToast(`✓ ${origName} → ${newName} 교환 완료!`);
+    renderCal();
+  } catch(e) {
+    alert('오류가 났어요. 다시 시도해주세요.');
   }
 }
 
@@ -282,8 +372,8 @@ function renderBoard(posts) {
       ${p.msg?`<div class="post-msg">${p.msg}</div>`:''}
       <div>
         ${p.accepted
-          ?`<button class="btn-done">수락됨</button><div class="accepted-by">✓ ${p.accepted}님이 수락했어요</div>`
-          :`<button class="btn-accept" onclick="acceptPost(${p.id})">수락하기</button>`}
+          ?`<button class="btn-done">교환완료</button><div class="accepted-by">✓ ${p.accepted}님과 교환됐어요</div>`
+          :`<button class="btn-accept" onclick="acceptPost(${p.id},'${p.name}','${p.date}','${p.shift}')">수락하기</button>`}
       </div>
     </div>
   `).join('');
@@ -297,8 +387,7 @@ async function postRequest() {
   const msg = document.getElementById('req-msg').value.trim();
   if(!name||!date||!shift){alert('이름, 날짜, 근무 종류는 필수예요!');return;}
   const btn = document.getElementById('btn-post');
-  btn.disabled = true;
-  btn.textContent = '올리는 중...';
+  btn.disabled = true; btn.textContent = '올리는 중...';
   try {
     await sbFetch('posts', {
       method: 'POST',
@@ -312,30 +401,45 @@ async function postRequest() {
     document.getElementById('req-msg').value='';
     showToast('교환 요청이 올라갔어요! 😊');
     loadBoard();
-  } catch(e) {
-    alert('오류가 났어요. 다시 시도해주세요.');
-  }
-  btn.disabled = false;
-  btn.textContent = '교환 요청 올리기';
+  } catch(e) { alert('오류가 났어요. 다시 시도해주세요.'); }
+  btn.disabled = false; btn.textContent = '교환 요청 올리기';
 }
 
-async function acceptPost(id) {
-  const name = prompt('수락하는 분 이름을 입력해주세요:');
-  if(!name) return;
+async function acceptPost(id, origName, date, shift) {
+  const newName = prompt('수락하는 분 이름을 입력해주세요:');
+  if(!newName) return;
   try {
     await sbFetch(`posts?id=eq.${id}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
-      body: JSON.stringify({accepted: name})
+      body: JSON.stringify({accepted: newName})
     });
-    showToast(`${name}님이 수락했어요! ✓`);
+    const d = parseInt(date.split('-')[2]);
+    const key = `${d}-${shift}-${origName}`;
+    await sbFetch('posts', {
+      method: 'POST',
+      prefer: 'return=minimal',
+      body: JSON.stringify({
+        name: origName,
+        date, shift,
+        msg: `${origName} → ${newName} 교환 확정`,
+        accepted: newName,
+        swap_key: key
+      })
+    });
+    swaps[key] = newName;
+    showToast(`✓ ${newName}님이 수락했어요!`);
+    renderCal();
     loadBoard();
-  } catch(e) {
-    alert('오류가 났어요. 다시 시도해주세요.');
-  }
+  } catch(e) { alert('오류가 났어요. 다시 시도해주세요.'); }
 }
 
-renderCal();
+async function init() {
+  await loadSwaps();
+  renderCal();
+}
+
+init();
 </script>
 </body>
 </html>
